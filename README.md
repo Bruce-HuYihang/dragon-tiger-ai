@@ -77,7 +77,15 @@ cp .env.example .env
 # 4. 生成今日龙虎榜AI简报
 python daily_run.py
 
-# 5. 启动可视化 Dashboard
+# 5. 启动多Agent协作分析流水线
+python run_multi_agent.py                    # 分析昨天数据
+python run_multi_agent.py 2026-07-21         # 分析指定日期
+
+# 6. 启动盘中异动监控（交易时段自动检测新上榜股票）
+python run_multi_agent.py --monitor          # 监控4小时
+python run_multi_agent.py --monitor --duration 60  # 监控1小时
+
+# 7. 启动可视化 Dashboard
 streamlit run src/dragon_tiger/app/main.py
 ```
 
@@ -229,10 +237,10 @@ LLM_MODEL=qwen-turbo
 - [x] Streamlit 深色主题 Dashboard
 - [x] Markdown/HTML 报告生成
 - [x] 每日定时自动运行
-- [ ] 盘中实时数据推送
+- [x] 盘中实时异动监控（新上榜股票检测 + 快速席位分析）
 - [x] 关联新闻舆情分析
 - [x] 历史回测验证（席位上榜后N日收益统计）
-- [ ] 多Agent协作架构升级
+- [x] 多Agent协作架构（DataCollector → SeatAnalyzer → MarketAnalyzer → ReportWriter）
 - [x] MCP Server 封装
 
 ---
