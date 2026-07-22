@@ -88,7 +88,7 @@ with st.sidebar:
     # 页面导航
     page = st.radio(
         "📌 导航",
-        ["🏠 市场概览", "🔍 个股深度", "🏦 席位画像", "📈 历史回测", "📋 每日报告", "⚙️ 设置"],
+        ["🏠 市场概览", "🔍 个股深度", "🏦 席位画像", "📈 历史回测", "📋 每日报告", "🤖 多Agent报告", "⚙️ 设置"],
     )
 
     st.divider()
@@ -480,7 +480,87 @@ elif page == "📋 每日报告":
                     report_date = d.name
                     st.markdown(f"- 📅 [{report_date}]({md_files[0]})")
 
-# ==================== 页面5：设置 ====================
+# ==================== 页面6：多Agent报告 ====================
+
+elif page == "🤖 多Agent报告":
+    st.title("🤖 多Agent协作分析")
+    st.caption("DataCollector → SeatAnalyzer → LLM深度解读 → MarketAnalyzer → ReportWriter")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        enable_llm = st.toggle("启用 LLM 深度解读", value=True,
+                                help="开启后对TOP3个股调用AI进行深度分析，需要API Key")
+    with col2:
+        top_n = st.slider("分析个股数", min_value=3, max_value=20, value=10,
+                           help="对净买入TOP N的个股进行席位分析")
+
+    if st.button("🚀 运行多Agent流水线", type="primary", use_container_width=True):
+        with st.spinner("多Agent流水线运行中..."):
+            try:
+                from dragon_tiger.agents import AgentOrchestrator
+                progress = st.progress(0, text="Stage 1/5: 数据收集...")
+                orchestrator = AgentOrchestrator(
+                    data_fetcher=fetcher,
+                    enable_llm=enable_llm,
+                )
+                progress.progress(20, text="Stage 2/5: 席位分析...")
+                result = orchestrator.run_pipeline(date=date_str)
+                progress.progress(100, text="完成!")
+
+                if result["success"]:
+                    st.success("✅ 多Agent流水线执行成功!")
+
+                    # 各阶段结果展示
+                    stages = result["stages"]
+                    col_a, col_b, col_c, col_d, col_e = st.columns(5)
+                    with col_a:
+                        st.metric("数据收集", f"{stages['data_collection']['stocks_count']}只")
+                    with col_b:
+                        st.metric("席位分析", f"{stages['seat_analysis']['analyzed_count']}只")
+                    with col_c:
+                        llm_count = stages["llm_analysis"]["analyzed_count"]
+                        st.metric("LLM解读", f"{llm_count}只")
+                    with col_d:
+                        st.metric("市场情绪", stages["market_analysis"]["sentiment"])
+                    with col_e:
+                        st.metric("资金主线", stages["market_analysis"]["dominant_sector"])
+
+                    st.divider()
+
+                    # 显示报告
+                    with st.expander("📄 查看完整多Agent报告", expanded=True):
+                        st.markdown(result["report"])
+
+                    # 下载按钮
+                    st.download_button(
+                        label="📥 下载多Agent报告",
+                        data=result["report"],
+                        file_name=f"multi_agent_report_{date_str.replace('-', '')}.md",
+                        mime="text/markdown",
+                    )
+                else:
+                    st.error(f"流水线失败: {result.get('message', '未知错误')}")
+
+            except Exception as e:
+                st.error(f"多Agent流水线异常: {e}")
+
+    # 历史多Agent报告
+    st.divider()
+    st.subheader("📚 历史多Agent报告")
+    ma_reports_dir = Path("./reports/multi_agent")
+    if ma_reports_dir.exists():
+        ma_files = sorted(ma_reports_dir.glob("multi_agent_report_*.md"), reverse=True)
+        if ma_files:
+            for f in ma_files[:10]:
+                date_label = f.stem.replace("multi_agent_report_", "")
+                fmt_date = f"{date_label[:4]}-{date_label[4:6]}-{date_label[6:8]}"
+                st.markdown(f"- 📅 [{fmt_date}]({f})")
+        else:
+            st.caption("暂无多Agent报告，点击上方按钮生成")
+    else:
+        st.caption("暂无多Agent报告")
+
+# ==================== 页面7：设置 ====================
 
 elif page == "⚙️ 设置":
     st.title("⚙️ 设置")

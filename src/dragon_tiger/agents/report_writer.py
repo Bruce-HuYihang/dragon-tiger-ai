@@ -94,8 +94,21 @@ class ReportWriterAgent:
                     amt_yi = seat["amount"] / 1e8 if seat["amount"] else 0
                     lines.append(
                         f"- {seat['name']}: {amt_yi:.2f}亿 "
-                        f"[{seat['style']}/{seat['标签']}]"
+                        f"[{seat['style']}/{seat['tag']}]"
                     )
+                lines.append("")
+
+            # 买入资金构成
+            if structure.get("buy_composition"):
+                comp_parts = [f"{k} {v['ratio']}%" for k, v in structure["buy_composition"].items()]
+                lines.append(f"**买入资金构成：** {' / '.join(comp_parts)}")
+                lines.append("")
+
+            # AI深度解读
+            if result.get("ai_commentary"):
+                lines.append("**AI深度解读：**")
+                lines.append("")
+                lines.append(result["ai_commentary"])
                 lines.append("")
 
             # 卖出席位
@@ -105,7 +118,7 @@ class ReportWriterAgent:
                     amt_yi = seat["amount"] / 1e8 if seat["amount"] else 0
                     lines.append(
                         f"- {seat['name']}: {amt_yi:.2f}亿 "
-                        f"[{seat['style']}/{seat['标签']}]"
+                        f"[{seat['style']}/{seat['tag']}]"
                     )
                 lines.append("")
 
