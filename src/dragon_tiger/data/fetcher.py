@@ -234,7 +234,7 @@ class DataFetcher:
             return cached
 
         logger.info("正在获取机构席位追踪数据...")
-        df = self._retry_call(ak.stock_lhb_institution_detail_em)
+        df = self._retry_call(ak.stock_lhb_jgmx_sina)
         self._save_cache(df, cache_key)
         logger.info(f"机构追踪获取成功: {len(df)} 条记录")
         return df

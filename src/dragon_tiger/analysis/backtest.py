@@ -202,10 +202,13 @@ class Backtester:
                 returns = pd.to_numeric(lhb_df[col_name], errors="coerce")
                 stats = self._compute_stats(returns, label=f"上榜后{window_label}")
                 result["time_windows"][window_label] = stats
-                logger.info(
-                    f"  上榜后{window_label}: 胜率 {stats['win_rate']}%, "
-                    f"平均收益 {stats['avg_return_pct']}%"
-                )
+                if "win_rate" in stats:
+                    logger.info(
+                        f"  上榜后{window_label}: 胜率 {stats['win_rate']}%, "
+                        f"平均收益 {stats['avg_return_pct']}%"
+                    )
+                else:
+                    logger.info(f"  上榜后{window_label}: {stats.get('message', '无数据')}")
             else:
                 logger.warning(f"  数据中缺少 '{col_name}' 字段，跳过")
 
