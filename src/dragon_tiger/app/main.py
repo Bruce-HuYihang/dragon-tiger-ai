@@ -16,7 +16,7 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from dragon_tiger.data import DataFetcher
-from dragon_tiger.analysis import AIAnalyzer
+from dragon_tiger.analysis import AIAnalyzer, Backtester, SentimentAnalyzer
 from dragon_tiger.visualization import ChartBuilder
 from dragon_tiger.reports import ReportGenerator
 
@@ -88,7 +88,7 @@ with st.sidebar:
     # 页面导航
     page = st.radio(
         "📌 导航",
-        ["🏠 市场概览", "🔍 个股深度", "🏦 席位画像", "📋 每日报告", "⚙️ 设置"],
+        ["🏠 市场概览", "🔍 个股深度", "🏦 席位画像", "📈 历史回测", "📋 每日报告", "⚙️ 设置"],
     )
 
     st.divider()
@@ -280,7 +280,164 @@ elif page == "🏦 席位画像":
                         except Exception as e:
                             st.error(f"AI分析失败: {e}")
 
-# ==================== 页面4：每日报告 ====================
+# ==================== 页面4：历史回测 ====================
+
+elif page == "📈 历史回测":
+    st.title("📈 龙虎榜历史回测验证")
+
+    st.markdown("""
+    基于龙虎榜上榜后的实际收益数据，统计胜率、平均收益、最大回撤等指标，
+    验证龙虎榜信号的有效性。
+    """)
+
+    tab1, tab2, tab3 = st.tabs(["上榜后效应", "营业部胜率", "净买入相关性"])
+
+    backtester = Backtester()
+
+    with tab1:
+        st.subheader("上榜后N日收益分布")
+        st.caption("统计龙虎榜上榜股票在后续1日、2日、5日、10日的收益表现")
+
+        col_a, col_b = st.columns(2)
+        with col_a:
+            bt_date = st.date_input(
+                "选择回测日期",
+                value=datetime.now() - timedelta(days=3),
+                max_value=datetime.now() - timedelta(days=1),
+                key="backtest_date",
+                help="选择要回测的龙虎榜日期",
+            )
+        with col_b:
+            st.write("")  # 占位对齐
+            if st.button("运行回测", type="primary", key="btn_backtest_effect"):
+                with st.spinner("正在回测上榜后效应..."):
+                    try:
+                        result = backtester.backtest_lhb_after_effect(bt_date.strftime("%Y%m%d"))
+
+                        if "message" in result and "time_windows" not in result:
+                            st.warning(result["message"])
+                        else:
+                            st.success(f"回测完成: 共 {result.get('total_stocks', 0)} 只股票")
+
+                            # 展示各时间窗口统计
+                            for window, stats in result.get("time_windows", {}).items():
+                                with st.expander(f"上榜后{window}", expanded=(window == "5日")):
+                                    c1, c2, c3, c4 = st.columns(4)
+                                    c1.metric("胜率", f"{stats.get('win_rate', 0):.1f}%")
+                                    c2.metric("平均收益", f"{stats.get('avg_return_pct', 0):.2f}%")
+                                    c3.metric("最大收益", f"{stats.get('max_return_pct', 0):.2f}%")
+                                    c4.metric("最大回撤", f"{stats.get('max_drawdown_pct', 0):.2f}%")
+
+                                    c5, c6 = st.columns(2)
+                                    c5.metric("盈亏比", f"{stats.get('profit_loss_ratio', 0):.2f}")
+                                    c6.metric("样本数", stats.get("sample_count", 0))
+                    except Exception as e:
+                        st.error(f"回测失败: {e}")
+
+    with tab2:
+        st.subheader("营业部上榜后胜率")
+        st.caption("统计特定营业部上榜个股的后续N日收益表现")
+
+        col_y1, col_y2 = st.columns(2)
+        with col_y1:
+            yyb_input = st.text_input(
+                "输入营业部名称",
+                placeholder="例如: 中信证券",
+                key="yyb_backtest_name",
+            )
+        with col_y2:
+            yyb_days = st.slider("统计天数", 5, 60, 30, step=5, key="yyb_backtest_days")
+
+        if st.button("分析营业部胜率", type="primary", key="btn_yyb_backtest"):
+            if not yyb_input:
+                st.warning("请输入营业部名称")
+            else:
+                with st.spinner(f"正在回测「{yyb_input}」上榜后 {yyb_days} 日收益..."):
+                    try:
+                        result = backtester.backtest_yyb_after_effect(yyb_input, days=yyb_days)
+
+                        if not result.get("found"):
+                            st.warning(result.get("message", "未找到该营业部"))
+                        elif result.get("message"):
+                            st.warning(result["message"])
+                        else:
+                            stats = result.get("stats", {})
+                            st.success(
+                                f"营业部: {result.get('yyb_name', '')} | "
+                                f"上榜次数: {result.get('stock_count', 0)}"
+                            )
+
+                            c1, c2, c3, c4 = st.columns(4)
+                            c1.metric("胜率", f"{stats.get('win_rate', 0):.1f}%")
+                            c2.metric("平均收益", f"{stats.get('avg_return_pct', 0):.2f}%")
+                            c3.metric("盈亏比", f"{stats.get('profit_loss_ratio', 0):.2f}")
+                            c4.metric("最大回撤", f"{stats.get('max_drawdown_pct', 0):.2f}%")
+
+                            # 显示个股列表
+                            stocks = result.get("stocks", [])
+                            if stocks:
+                                st.dataframe(
+                                    stocks,
+                                    use_container_width=True,
+                                    hide_index=True,
+                                    column_config={
+                                        "symbol": st.column_config.TextColumn("代码", width="small"),
+                                        "name": st.column_config.TextColumn("名称", width="medium"),
+                                        "date": st.column_config.TextColumn("上榜日期", width="medium"),
+                                    },
+                                )
+                    except Exception as e:
+                        st.error(f"回测失败: {e}")
+
+    with tab3:
+        st.subheader("净买入额与后续收益相关性")
+        st.caption("分析龙虎榜净买入额大小与后续收益之间的相关性")
+
+        corr_date = st.date_input(
+            "选择分析日期",
+            value=datetime.now() - timedelta(days=3),
+            max_value=datetime.now() - timedelta(days=1),
+            key="corr_date",
+            help="选择要分析的龙虎榜日期",
+        )
+
+        if st.button("分析相关性", type="primary", key="btn_corr"):
+            with st.spinner("正在分析净买入与收益相关性..."):
+                try:
+                    result = backtester.backtest_net_buy_correlation(corr_date.strftime("%Y%m%d"))
+
+                    if "message" in result and "correlations" not in result:
+                        st.warning(result["message"])
+                    else:
+                        st.success(f"分析完成: 共 {result.get('total_stocks', 0)} 只股票")
+
+                        for window, corr_info in result.get("correlations", {}).items():
+                            with st.expander(f"上榜后{window}"):
+                                pearson = corr_info.get("pearson_corr")
+                                interp = corr_info.get("interpretation", "")
+                                c1, c2 = st.columns(2)
+                                c1.metric(
+                                    "皮尔逊相关系数",
+                                    f"{pearson:.4f}" if pearson is not None else "N/A",
+                                )
+                                c2.metric("解读", interp)
+
+                                # 分组统计
+                                group_stats = result.get("group_analysis", {}).get(window, {})
+                                if group_stats:
+                                    st.markdown("**分组统计：**")
+                                    for group_name, g_stats in group_stats.items():
+                                        st.markdown(
+                                            f"- **{group_name}**: "
+                                            f"{g_stats.get('count', 0)}只, "
+                                            f"平均净买入 {g_stats.get('avg_net_buy', 0):.0f}万元, "
+                                            f"平均收益 {g_stats.get('avg_return_pct', 0):.2f}%, "
+                                            f"胜率 {g_stats.get('win_rate_pct', 0):.1f}%"
+                                        )
+                except Exception as e:
+                    st.error(f"分析失败: {e}")
+
+# ==================== 页面5：每日报告 ====================
 
 elif page == "📋 每日报告":
     st.title(f"📋 每日AI简报 - {date_str}")

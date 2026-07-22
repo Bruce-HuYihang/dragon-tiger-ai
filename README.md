@@ -172,6 +172,8 @@ dragon-tiger-ai/
 │   │   └── fetcher.py          # 数据获取层（6个akshare接口封装）
 │   ├── analysis/
 │   │   ├── analyzer.py         # AI分析引擎（LLM调用+Prompt渲染）
+│   │   ├── backtest.py         # 历史回测验证（上榜后收益、营业部胜率、净买入相关性）
+│   │   ├── sentiment.py        # 新闻舆情分析（新闻获取+LLM情绪判断+交叉验证）
 │   │   └── prompts/            # 3套Jinja2 Prompt模板
 │   │       ├── stock_analysis.j2   # 个股龙虎榜解读
 │   │       ├── sector_analysis.j2  # 板块联动分析
@@ -179,11 +181,13 @@ dragon-tiger-ai/
 │   ├── visualization/
 │   │   └── charts.py           # 7种Plotly图表（深色金融主题）
 │   ├── app/
-│   │   └── main.py             # Streamlit Dashboard（5个页面）
-│   └── reports/
-│       └── generator.py        # 每日报告生成器
+│   │   └── main.py             # Streamlit Dashboard（6个页面，含历史回测）
+│   ├── reports/
+│   │   └── generator.py        # 每日报告生成器（支持回测+舆情）
+│   └── mcp_server.py           # MCP Server（FastMCP，供Claude/Cursor调用）
 ├── tests/                      # 单元测试
-├── daily_run.py                # 每日自动运行脚本
+├── daily_run.py                # 每日自动运行脚本（支持 --with-backtest --with-sentiment）
+├── run_mcp_server.py           # MCP Server 启动脚本
 ├── .env.example                # 环境变量模板
 └── pyproject.toml              # 项目配置
 ```
@@ -226,10 +230,10 @@ LLM_MODEL=qwen-turbo
 - [x] Markdown/HTML 报告生成
 - [x] 每日定时自动运行
 - [ ] 盘中实时数据推送
-- [ ] 关联新闻舆情分析
-- [ ] 历史回测验证（席位上榜后N日收益统计）
+- [x] 关联新闻舆情分析
+- [x] 历史回测验证（席位上榜后N日收益统计）
 - [ ] 多Agent协作架构升级
-- [ ] MCP Server 封装
+- [x] MCP Server 封装
 
 ---
 
